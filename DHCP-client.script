@@ -1,4 +1,10 @@
 {
+  # DESCRIPTION
+  # This script is used in DHCP-client script section
+  # for update of SRC-NAT rule with new address, creation and removal
+  # of one marked route (for example, for priority routing through interface)
+  # and one common route with greater distance
+
   # CONFIGURATION
   
   # comment text for src-nat rule to be updated
