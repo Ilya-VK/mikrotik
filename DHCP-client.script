@@ -1,0 +1,63 @@
+{
+  # CONFIGURATION
+  
+  # comment text for src-nat rule to be updated
+  # rule must be pre-created, this script doesn't create or delete it
+  # change comment to something meaningful
+  :local srcnatcomment "SRC-NAT for ... uplink"
+  
+  # packets routing mark
+  # change to something meaningful
+  # create connections and packets marks using mangle
+  :local routingmark "to-...-uplink"
+  
+  # comment of route for marked packets, be sure there's no more than one such route
+  # change comment to something meaningful
+  :local markedroutecomment "DHCP-client scripted route to ... for marked packets"
+
+  # comment of failover route for all traffic to come through this client/interface
+  # change comment to something meaningful
+  :local failoverroutecomment "DHCP-client scripted route to ... for failover"
+
+  # distance to use in marked route
+  # change according to your needs
+  :local markedroutedistance 2
+  
+  # distance to use in failover route
+  # change according to your needs
+  :local failoverroutedistance 5
+  
+  # MAIN SEQUENCE
+  :local markedrouterscount [/ip route print count-only where comment=$markedroutecomment]
+  :local failoverroutescount [/ip route print count-only where comment=$failoverroutecomment]
+  :if ($bound=1) do={
+    :if ($markedrouterscount=0) do={
+      /ip route add gateway=$"gateway-address" comment=$markedroutecomment routing-mark=$routingmark distance=$markedroutedistance
+    } else={
+      :if ($markedrouterscount=1) do={
+        :local markedroute [/ip route find where comment=$markedroutecomment]
+        :if ([/ip route get $markedroute gateway] != $"gateway-address") do={
+          /ip route set $markedroute gateway=$"gateway-address"
+        }
+      } else={
+        :error "Multiple routes for marked packets found, DHCP-client script fail"
+      }
+    }
+    :if ($failoverroutescount=0) do={
+      /ip route add gateway=$"gateway-address" comment=$failoverroutecomment distance=$failoverroutedistance
+    } else={
+      :if ($failoverroutescount=1) do={
+        :local failoverroute [/ip route find where comment=$failoverroutecomment]
+        :if ([/ip route get $failoverroute gateway] != $"gateway-address") do={
+            /ip route set $failoverroute gateway=$"gateway-address"
+        }
+      } else={
+        :error "Multiple failover routes found, DHCP-client script fail"
+      }
+    }
+    /ip firewall nat set to-addresses=$"lease-address" [find comment=$srcnatcomment]
+  } else={
+    /ip route remove [find comment=$markedroutecomment]
+    /ip route remove [find comment=$failoverroutecomment]
+  }
+}
